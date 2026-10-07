@@ -1,25 +1,36 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import ExcelJS from "exceljs";
+
 function Clientes() {
 
-    const [clientes, setClientes] = useState([]);
-
-    const [cliente, setCliente] = useState({
+    const formInicial = {
+        idCliente: null,
         estado: true,
         nombre: "",
         apellido: "",
         email: "",
         telefono: "",
         fechaRegistro: ""
-    });
+    };
+
+    const [clientes, setClientes] = useState([]);
+
+    const [form, setForm] = useState(formInicial);
+    const [modoEdicion, setModoEdicion] = useState(false);
+    const [mensaje, setMensaje] = useState("");
 
     const cargarClientes = async () => {
         try {
             const respuesta = await axios.get(
-                "http://localhost:8080/clientes"
+                "http://localhost:8080/clientes/activos"
             );
-            setClientes(respuesta.data);
+
+            setClientes(respuesta.data || []);
+
         } catch (error) {
             console.error("Error al listar clientes:", error);
         }
@@ -30,236 +41,751 @@ function Clientes() {
     }, []);
 
     const handleChange = (e) => {
-        setCliente({
-            ...cliente,
+        setForm({
+            ...form,
             [e.target.name]: e.target.value
         });
     };
 
-    const guardar = async (e) => {
+    const guardarCliente = async (e) => {
         e.preventDefault();
 
         try {
-            await axios.post("http://localhost:8080/clientes", {
+
+            const datos = {
                 estado: true,
-                nombre: cliente.nombre,
-                apellido: cliente.apellido,
-                email: cliente.email,
-                telefono: cliente.telefono,
-                fechaRegistro: cliente.fechaRegistro
-            });
+                nombre: form.nombre,
+                apellido: form.apellido,
+                email: form.email,
+                telefono: form.telefono,
+                fechaRegistro: form.fechaRegistro
+            };
 
-            alert("Cliente guardado correctamente");
+            if (modoEdicion) {
 
-            setCliente({
-                estado: true,
-                nombre: "",
-                apellido: "",
-                email: "",
-                telefono: "",
-                fechaRegistro: ""
-            });
+                await axios.put(
+                    `http://localhost:8080/clientes/${form.idCliente}`,
+                    datos
+                );
 
-            cargarClientes();
+                setMensaje(
+                    "Cliente actualizado correctamente."
+                );
+
+            } else {
+
+                await axios.post(
+                    "http://localhost:8080/clientes",
+                    datos
+                );
+
+                setMensaje(
+                    "Cliente guardado correctamente."
+                );
+            }
+
+            setForm(formInicial);
+            setModoEdicion(false);
+
+            await cargarClientes();
+
+            setTimeout(() => {
+                setMensaje("");
+            }, 3000);
 
         } catch (error) {
-            console.error("Error al guardar cliente:", error);
-            alert("Error al guardar cliente");
+
+            console.error(
+                "Error al guardar/actualizar cliente:",
+                error
+            );
+
+            setMensaje(
+                "Error al guardar o actualizar el cliente."
+            );
         }
     };
 
+    const editarCliente = (cliente) => {
+
+        let fecha = cliente.fechaRegistro || "";
+
+        if (fecha && fecha.length > 16) {
+            fecha = fecha.substring(0, 16);
+        }
+
+        setForm({
+            idCliente:
+                cliente.idCliente ||
+                cliente.id,
+
+            estado:
+                cliente.estado ?? true,
+
+            nombre:
+                cliente.nombre || "",
+
+            apellido:
+                cliente.apellido || "",
+
+            email:
+                cliente.email || "",
+
+            telefono:
+                cliente.telefono || "",
+
+            fechaRegistro:
+                fecha
+        });
+
+        setModoEdicion(true);
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+    };
+
+    const cancelarEdicion = () => {
+
+        setForm(formInicial);
+        setModoEdicion(false);
+        setMensaje("");
+    };
+
+    const anularCliente = async (id) => {
+
+        const confirmar = window.confirm(
+            "¿Estás seguro de que deseas anular este cliente?"
+        );
+
+        if (!confirmar) {
+            return;
+        }
+
+        try {
+
+            await axios.put(
+                `http://localhost:8080/clientes/anular/${id}`
+            );
+
+            setMensaje(
+                "Cliente anulado correctamente."
+            );
+
+            await cargarClientes();
+
+            setTimeout(() => {
+                setMensaje("");
+            }, 3000);
+
+        } catch (error) {
+
+            console.error(
+                "Error al anular cliente:",
+                error
+            );
+
+            setMensaje(
+                "No se pudo anular el cliente."
+            );
+        }
+    };
+
+    const generarPDF = () => {
+
+        const doc = new jsPDF();
+
+        doc.setFontSize(18);
+
+        doc.text(
+            "Listado de Clientes",
+            14,
+            20
+        );
+
+        doc.setFontSize(10);
+
+        doc.text(
+            `Fecha: ${new Date().toLocaleString()}`,
+            14,
+            28
+        );
+
+        const datos = clientes.map((cliente) => [
+
+            `${cliente.nombre || ""} ${cliente.apellido || ""}`,
+
+            cliente.email || "",
+
+            cliente.telefono || "",
+
+            cliente.fechaRegistro
+                ? new Date(
+                    cliente.fechaRegistro
+                ).toLocaleString()
+                : ""
+        ]);
+
+        autoTable(doc, {
+
+            startY: 35,
+
+            head: [[
+                "Nombre",
+                "Email",
+                "Teléfono",
+                "Registro"
+            ]],
+
+            body: datos,
+
+            headStyles: {
+                fillColor: [16, 185, 129]
+            },
+
+            alternateRowStyles: {
+                fillColor: [236, 253, 245]
+            }
+        });
+
+        return doc;
+    };
+
+    const exportarPDF = () => {
+
+        const doc = generarPDF();
+
+        doc.save(
+            "Listado_de_Clientes.pdf"
+        );
+    };
+
+    const verPDF = () => {
+
+        const doc = generarPDF();
+
+        const blob =
+            doc.output("blob");
+
+        const url =
+            URL.createObjectURL(blob);
+
+        window.open(
+            url,
+            "_blank"
+        );
+    };
+
+    const exportarExcel = async () => {
+
+        const workbook =
+            new ExcelJS.Workbook();
+
+        const worksheet =
+            workbook.addWorksheet(
+                "Clientes"
+            );
+
+        worksheet.columns = [
+
+            {
+                header: "Nombre",
+                key: "nombre",
+                width: 30
+            },
+
+            {
+                header: "Email",
+                key: "email",
+                width: 35
+            },
+
+            {
+                header: "Teléfono",
+                key: "telefono",
+                width: 20
+            },
+
+            {
+                header: "Registro",
+                key: "registro",
+                width: 25
+            }
+        ];
+
+        clientes.forEach((cliente) => {
+
+            worksheet.addRow({
+
+                nombre:
+                    `${cliente.nombre || ""} ${cliente.apellido || ""}`,
+
+                email:
+                    cliente.email || "",
+
+                telefono:
+                    cliente.telefono || "",
+
+                registro:
+                    cliente.fechaRegistro
+                        ? new Date(
+                            cliente.fechaRegistro
+                        ).toLocaleString()
+                        : ""
+            });
+        });
+
+        worksheet.getRow(1).font = {
+            bold: true,
+            color: {
+                argb: "FFFFFF"
+            }
+        };
+
+        worksheet.getRow(1).fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: {
+                argb: "10B981"
+            }
+        };
+
+        worksheet.getRow(1).alignment = {
+            vertical: "middle",
+            horizontal: "center"
+        };
+
+        const buffer =
+            await workbook.xlsx.writeBuffer();
+
+        const blob = new Blob(
+            [buffer],
+            {
+                type:
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        );
+
+        const url =
+            URL.createObjectURL(blob);
+
+        const enlace =
+            document.createElement("a");
+
+        enlace.href = url;
+
+        enlace.download =
+            "Listado_de_Clientes.xlsx";
+
+        enlace.click();
+
+        URL.revokeObjectURL(url);
+    };
+
     return (
-        <div className="min-h-screen bg-slate-100 p-8">
+        <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-green-100 p-4 md:p-8">
 
-            {/* ENCABEZADO */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-slate-800">
-                    Gestión de Clientes
-                </h1>
+            <div className="max-w-7xl mx-auto">
 
-                <p className="mt-1 text-slate-500">
-                    Registra y administra los clientes del sistema
-                </p>
-            </div>
+                <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-700 rounded-3xl shadow-2xl p-6 md:p-8 mb-8 text-white">
 
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-
-                {/* FORMULARIO */}
-                <div className="rounded-2xl bg-white p-6 shadow-lg">
-
-                    <h2 className="mb-6 text-xl font-bold text-slate-700">
-                        Nuevo Cliente
-                    </h2>
-
-                    <form onSubmit={guardar} className="space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
 
                         <div>
-                            <label className="mb-1 block text-sm font-semibold text-slate-600">
-                                Nombre
-                            </label>
 
-                            <input
-                                type="text"
-                                name="nombre"
-                                value={cliente.nombre}
-                                onChange={handleChange}
-                                placeholder="Nombre del cliente"
-                                required
-                                className="w-full rounded-lg border border-slate-300 px-4 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                            />
-                        </div>
+                            <div className="flex items-center gap-3 mb-2">
 
-                        <div>
-                            <label className="mb-1 block text-sm font-semibold text-slate-600">
-                                Apellido
-                            </label>
+                                <div className="bg-emerald-400 rounded-2xl p-3 text-2xl">
+                                    👥
+                                </div>
 
-                            <input
-                                type="text"
-                                name="apellido"
-                                value={cliente.apellido}
-                                onChange={handleChange}
-                                placeholder="Apellido del cliente"
-                                required
-                                className="w-full rounded-lg border border-slate-300 px-4 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                            />
-                        </div>
+                                <h1 className="text-3xl md:text-4xl font-bold">
+                                    Gestión de Clientes
+                                </h1>
 
-                        <div>
-                            <label className="mb-1 block text-sm font-semibold text-slate-600">
-                                Correo electrónico
-                            </label>
+                            </div>
 
-                            <input
-                                type="email"
-                                name="email"
-                                value={cliente.email}
-                                onChange={handleChange}
-                                placeholder="correo@ejemplo.com"
-                                required
-                                className="w-full rounded-lg border border-slate-300 px-4 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="mb-1 block text-sm font-semibold text-slate-600">
-                                Teléfono
-                            </label>
-
-                            <input
-                                type="text"
-                                name="telefono"
-                                value={cliente.telefono}
-                                onChange={handleChange}
-                                placeholder="12345678"
-                                required
-                                className="w-full rounded-lg border border-slate-300 px-4 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="mb-1 block text-sm font-semibold text-slate-600">
-                                Fecha de registro
-                            </label>
-
-                            <input
-                                type="datetime-local"
-                                name="fechaRegistro"
-                                value={cliente.fechaRegistro}
-                                onChange={handleChange}
-                                required
-                                className="w-full rounded-lg border border-slate-300 px-4 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            className="w-full rounded-lg bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-700"
-                        >
-                            + Guardar Cliente
-                        </button>
-
-                    </form>
-                </div>
-
-                {/* LISTADO */}
-                <div className="rounded-2xl bg-white p-6 shadow-lg lg:col-span-2">
-
-                    <div className="mb-6 flex items-center justify-between">
-
-                        <div>
-                            <h2 className="text-xl font-bold text-slate-700">
-                                Listado de Clientes
-                            </h2>
-
-                            <p className="text-sm text-slate-500">
-                                Clientes registrados en el sistema
+                            <p className="text-emerald-100">
+                                Administra los clientes de tu punto de venta
                             </p>
+
                         </div>
 
-                        <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700">
-                            {clientes.length} clientes
-                        </span>
+                        <div className="bg-white/10 backdrop-blur rounded-2xl px-6 py-4 text-center">
+
+                            <p className="text-emerald-100 text-sm">
+                                Clientes activos
+                            </p>
+
+                            <p className="text-3xl font-bold">
+                                {clientes.length}
+                            </p>
+
+                        </div>
 
                     </div>
 
-                    <div className="overflow-x-auto">
+                </div>
 
-                        <table className="w-full text-left">
+                {mensaje && (
 
-                            <thead>
-                                <tr className="border-b border-slate-200 text-sm text-slate-500">
-                                    <th className="px-4 py-3">Nombre</th>
-                                    <th className="px-4 py-3">Apellido</th>
-                                    <th className="px-4 py-3">Email</th>
-                                    <th className="px-4 py-3">Teléfono</th>
-                                    <th className="px-4 py-3">Registro</th>
-                                </tr>
-                            </thead>
+                    <div className="mb-6 bg-emerald-100 border border-emerald-300 text-emerald-800 px-5 py-4 rounded-2xl font-semibold shadow">
+                        {mensaje}
+                    </div>
 
-                            <tbody>
+                )}
 
-                                {clientes.map((c) => (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-                                    <tr
-                                        key={c.idCliente}
-                                        className="border-b border-slate-100 transition hover:bg-slate-50"
+                    <div className="lg:col-span-4">
+
+                        <div className="bg-emerald-50 rounded-3xl shadow-xl overflow-hidden">
+
+                            <div className="bg-emerald-800 text-white p-5">
+
+                                <h2 className="text-xl font-bold">
+
+                                    {modoEdicion
+                                        ? "✏️ Editar Cliente"
+                                        : "➕ Registrar Cliente"}
+
+                                </h2>
+
+                                <p className="text-emerald-100 text-sm mt-1">
+
+                                    {modoEdicion
+                                        ? "Modifica la información del cliente"
+                                        : "Ingresa la información del cliente"}
+
+                                </p>
+
+                            </div>
+
+                            <form
+                                onSubmit={guardarCliente}
+                                className="p-6 space-y-5"
+                            >
+
+                                <div>
+
+                                    <label className="block text-sm font-semibold text-emerald-900 mb-2">
+                                        Nombre
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="nombre"
+                                        value={form.nombre}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500"
+                                        placeholder="Nombre"
+                                    />
+
+                                </div>
+
+                                <div>
+
+                                    <label className="block text-sm font-semibold text-emerald-900 mb-2">
+                                        Apellido
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="apellido"
+                                        value={form.apellido}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500"
+                                        placeholder="Apellido"
+                                    />
+
+                                </div>
+
+                                <div>
+
+                                    <label className="block text-sm font-semibold text-emerald-900 mb-2">
+                                        Email
+                                    </label>
+
+                                    <input
+                                        type="email"
+                                        name="email"
+                                        value={form.email}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500"
+                                        placeholder="correo@ejemplo.com"
+                                    />
+
+                                </div>
+
+                                <div>
+
+                                    <label className="block text-sm font-semibold text-emerald-900 mb-2">
+                                        Teléfono
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="telefono"
+                                        value={form.telefono}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500"
+                                        placeholder="Teléfono"
+                                    />
+
+                                </div>
+
+                                <div>
+
+                                    <label className="block text-sm font-semibold text-emerald-900 mb-2">
+                                        Fecha de registro
+                                    </label>
+
+                                    <input
+                                        type="datetime-local"
+                                        name="fechaRegistro"
+                                        value={form.fechaRegistro}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition shadow-lg"
+                                >
+                                    {modoEdicion
+                                        ? "💾 Actualizar Cliente"
+                                        : "💾 Guardar Cliente"}
+                                </button>
+
+                                {modoEdicion && (
+
+                                    <button
+                                        type="button"
+                                        onClick={cancelarEdicion}
+                                        className="w-full bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold py-3 rounded-xl transition"
                                     >
+                                        ✖ Cancelar edición
+                                    </button>
 
-                                        <td className="px-4 py-4 font-semibold text-slate-700">
-                                            {c.nombre}
-                                        </td>
+                                )}
 
-                                        <td className="px-4 py-4 text-slate-600">
-                                            {c.apellido}
-                                        </td>
+                            </form>
 
-                                        <td className="px-4 py-4 text-slate-500">
-                                            {c.email}
-                                        </td>
-
-                                        <td className="px-4 py-4 text-slate-600">
-                                            {c.telefono}
-                                        </td>
-
-                                        <td className="px-4 py-4">
-                                            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                                                {c.fechaRegistro}
-                                            </span>
-                                        </td>
-
-                                    </tr>
-
-                                ))}
-
-                            </tbody>
-
-                        </table>
+                        </div>
 
                     </div>
+                    {/* LISTADO */}
+
+                    <div className="lg:col-span-8">
+
+                        <div className="bg-emerald-50 rounded-3xl shadow-xl overflow-hidden">
+
+                            <div className="bg-emerald-800 text-white p-5">
+
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+                                    <div>
+
+                                        <h2 className="text-xl font-bold">
+                                            📋 Listado de Clientes
+                                        </h2>
+
+                                        <p className="text-emerald-100 text-sm">
+                                            Clientes activos registrados
+                                        </p>
+
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+
+                                        <button
+                                            onClick={exportarPDF}
+                                            className="bg-emerald-950 hover:bg-black text-white px-4 py-2 rounded-xl font-semibold transition"
+                                        >
+                                            📄 PDF
+                                        </button>
+
+                                        <button
+                                            onClick={verPDF}
+                                            className="bg-white hover:bg-emerald-50 text-emerald-800 px-4 py-2 rounded-xl font-semibold transition"
+                                        >
+                                            👁️ Ver PDF
+                                        </button>
+
+                                        <button
+                                            onClick={exportarExcel}
+                                            className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-xl font-semibold transition"
+                                        >
+                                            📊 Excel
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <div className="overflow-x-auto">
+
+                                <table className="w-full text-sm">
+
+                                    <thead className="bg-emerald-800 text-white">
+
+                                        <tr>
+
+                                            <th className="px-4 py-4 text-left">
+                                                Nombre
+                                            </th>
+
+                                            <th className="px-4 py-4 text-left">
+                                                Email
+                                            </th>
+
+                                            <th className="px-4 py-4 text-left">
+                                                Teléfono
+                                            </th>
+
+                                            <th className="px-4 py-4 text-left">
+                                                Registro
+                                            </th>
+
+                                            <th className="px-4 py-4 text-center">
+                                                Acciones
+                                            </th>
+
+                                        </tr>
+
+                                    </thead>
+
+                                    <tbody>
+
+                                        {clientes.length === 0 ? (
+
+                                            <tr>
+
+                                                <td
+                                                    colSpan="5"
+                                                    className="text-center py-10 text-emerald-700"
+                                                >
+                                                    No hay clientes activos registrados.
+                                                </td>
+
+                                            </tr>
+
+                                        ) : (
+
+                                            clientes.map((cliente, index) => {
+
+                                                const idCliente =
+                                                    cliente.idCliente ||
+                                                    cliente.id;
+
+                                                return (
+
+                                                    <tr
+                                                        key={
+                                                            idCliente ||
+                                                            index
+                                                        }
+                                                        className={
+                                                            index % 2 === 0
+                                                                ? "bg-white hover:bg-emerald-100 transition"
+                                                                : "bg-emerald-50 hover:bg-emerald-100 transition"
+                                                        }
+                                                    >
+
+                                                        <td className="px-4 py-4 font-semibold text-emerald-950">
+                                                            {cliente.nombre}{" "}
+                                                            {cliente.apellido}
+                                                        </td>
+
+                                                        <td className="px-4 py-4 text-gray-700">
+                                                            {cliente.email || "—"}
+                                                        </td>
+
+                                                        <td className="px-4 py-4 text-gray-700">
+                                                            {cliente.telefono || "—"}
+                                                        </td>
+
+                                                        <td className="px-4 py-4 text-gray-700">
+                                                            {cliente.fechaRegistro
+                                                                ? new Date(
+                                                                    cliente.fechaRegistro
+                                                                ).toLocaleString()
+                                                                : "—"}
+                                                        </td>
+
+                                                        <td className="px-4 py-4">
+
+                                                            <div className="flex flex-col sm:flex-row justify-center gap-2">
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        editarCliente(
+                                                                            cliente
+                                                                        )
+                                                                    }
+                                                                    className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl font-semibold transition"
+                                                                >
+                                                                    ✏️ Editar
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        anularCliente(
+                                                                            idCliente
+                                                                        )
+                                                                    }
+                                                                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-semibold transition"
+                                                                >
+                                                                    🚫 Anular
+                                                                </button>
+
+                                                            </div>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                );
+
+                                            })
+
+                                        )}
+
+                                    </tbody>
+
+                                </table>
+
+                            </div>
+
+                            <div className="bg-emerald-100/70 px-5 py-4 text-sm text-emerald-800">
+
+                                Total de clientes activos:{" "}
+                                <strong>
+                                    {clientes.length}
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
                 </div>
 
             </div>
+
         </div>
     );
 }
