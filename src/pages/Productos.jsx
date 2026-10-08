@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import axios from "axios";
 
 import jsPDF from "jspdf";
@@ -6,6 +8,8 @@ import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 
 function Productos() {
+
+    const navigate = useNavigate();
 
     const formInicial = {
         idProducto: null,
@@ -19,13 +23,14 @@ function Productos() {
 
     const [productos, setProductos] = useState([]);
     const [categorias, setCategorias] = useState([]);
-
     const [form, setForm] = useState(formInicial);
     const [modoEdicion, setModoEdicion] = useState(false);
     const [mensaje, setMensaje] = useState("");
 
     const cargarProductos = async () => {
+
         try {
+
             const respuesta = await axios.get(
                 "http://localhost:8080/productos/activos"
             );
@@ -33,12 +38,20 @@ function Productos() {
             setProductos(respuesta.data || []);
 
         } catch (error) {
-            console.error("Error al listar productos:", error);
+
+            console.error(
+                "Error al listar productos:",
+                error
+            );
+
         }
+
     };
 
     const cargarCategorias = async () => {
+
         try {
+
             const respuesta = await axios.get(
                 "http://localhost:8080/categorias/activos"
             );
@@ -50,23 +63,34 @@ function Productos() {
             );
 
         } catch (error) {
-            console.error("Error al listar categorías:", error);
+
+            console.error(
+                "Error al listar categorías:",
+                error
+            );
+
         }
+
     };
 
     useEffect(() => {
+
         cargarProductos();
         cargarCategorias();
+
     }, []);
 
     const handleChange = (e) => {
+
         setForm({
             ...form,
             [e.target.name]: e.target.value
         });
+
     };
 
     const guardarProducto = async (e) => {
+
         e.preventDefault();
 
         try {
@@ -87,7 +111,9 @@ function Productos() {
                     datos
                 );
 
-                setMensaje("Producto actualizado correctamente.");
+                setMensaje(
+                    "Producto actualizado correctamente."
+                );
 
             } else {
 
@@ -96,7 +122,10 @@ function Productos() {
                     datos
                 );
 
-                setMensaje("Producto guardado correctamente.");
+                setMensaje(
+                    "Producto guardado correctamente."
+                );
+
             }
 
             setForm(formInicial);
@@ -105,7 +134,9 @@ function Productos() {
             await cargarProductos();
 
             setTimeout(() => {
+
                 setMensaje("");
+
             }, 3000);
 
         } catch (error) {
@@ -118,17 +149,21 @@ function Productos() {
             setMensaje(
                 "Error al guardar o actualizar el producto."
             );
+
         }
+
     };
 
     const editarProducto = (producto) => {
 
         setForm({
+
             idProducto:
                 producto.idProducto ||
                 producto.id,
 
-            estado: producto.estado ?? true,
+            estado:
+                producto.estado ?? true,
 
             nombre:
                 producto.nombre || "",
@@ -147,6 +182,7 @@ function Productos() {
                 producto.idCategoria?.id ||
                 producto.idCategoria ||
                 ""
+
         });
 
         setModoEdicion(true);
@@ -155,6 +191,7 @@ function Productos() {
             top: 0,
             behavior: "smooth"
         });
+
     };
 
     const cancelarEdicion = () => {
@@ -162,13 +199,15 @@ function Productos() {
         setForm(formInicial);
         setModoEdicion(false);
         setMensaje("");
+
     };
 
     const anularProducto = async (id) => {
 
-        const confirmar = window.confirm(
-            "¿Estás seguro de que deseas anular este producto?"
-        );
+        const confirmar =
+            window.confirm(
+                "¿Estás seguro de que deseas anular este producto?"
+            );
 
         if (!confirmar) {
             return;
@@ -187,7 +226,9 @@ function Productos() {
             await cargarProductos();
 
             setTimeout(() => {
+
                 setMensaje("");
+
             }, 3000);
 
         } catch (error) {
@@ -200,8 +241,14 @@ function Productos() {
             setMensaje(
                 "No se pudo anular el producto."
             );
+
         }
+
     };
+
+    // =========================
+    // PDF
+    // =========================
 
     const generarPDF = () => {
 
@@ -223,26 +270,36 @@ function Productos() {
             28
         );
 
-        const datos = productos.map((producto) => {
+        const datos = productos.map(
+            (producto) => {
 
-            const categoria =
-                producto.idCategoria?.nombre ||
-                producto.categoria?.nombre ||
-                producto.idCategoria ||
-                "Sin categoría";
+                const categoria =
+                    producto.idCategoria?.nombre ||
+                    producto.categoria?.nombre ||
+                    producto.idCategoria ||
+                    "Sin categoría";
 
-            return [
-                producto.nombre || "",
-                producto.descripcion || "",
-                `Q ${Number(
-                    producto.precio || 0
-                ).toFixed(2)}`,
-                producto.stock ?? 0,
-                categoria
-            ];
-        });
+                return [
+
+                    producto.nombre || "",
+
+                    producto.descripcion || "",
+
+                    `Q ${Number(
+                        producto.precio || 0
+                    ).toFixed(2)}`,
+
+                    producto.stock ?? 0,
+
+                    categoria
+
+                ];
+
+            }
+        );
 
         autoTable(doc, {
+
             startY: 35,
 
             head: [[
@@ -262,9 +319,11 @@ function Productos() {
             alternateRowStyles: {
                 fillColor: [236, 253, 245]
             }
+
         });
 
         return doc;
+
     };
 
     const exportarPDF = () => {
@@ -274,6 +333,7 @@ function Productos() {
         doc.save(
             "Listado_de_Productos.pdf"
         );
+
     };
 
     const verPDF = () => {
@@ -290,7 +350,12 @@ function Productos() {
             url,
             "_blank"
         );
+
     };
+
+    // =========================
+    // EXCEL
+    // =========================
 
     const exportarExcel = async () => {
 
@@ -303,78 +368,99 @@ function Productos() {
             );
 
         worksheet.columns = [
+
             {
                 header: "Producto",
                 key: "nombre",
                 width: 25
             },
+
             {
                 header: "Descripción",
                 key: "descripcion",
                 width: 35
             },
+
             {
                 header: "Precio",
                 key: "precio",
                 width: 15
             },
+
             {
                 header: "Stock",
                 key: "stock",
                 width: 15
             },
+
             {
                 header: "Categoría",
                 key: "categoria",
                 width: 25
             }
+
         ];
 
-        productos.forEach((producto) => {
+        productos.forEach(
+            (producto) => {
 
-            const categoria =
-                producto.idCategoria?.nombre ||
-                producto.categoria?.nombre ||
-                producto.idCategoria ||
-                "Sin categoría";
+                const categoria =
+                    producto.idCategoria?.nombre ||
+                    producto.categoria?.nombre ||
+                    producto.idCategoria ||
+                    "Sin categoría";
 
-            worksheet.addRow({
-                nombre:
-                    producto.nombre || "",
+                worksheet.addRow({
 
-                descripcion:
-                    producto.descripcion || "",
+                    nombre:
+                        producto.nombre || "",
 
-                precio:
-                    Number(
-                        producto.precio || 0
-                    ),
+                    descripcion:
+                        producto.descripcion || "",
 
-                stock:
-                    producto.stock ?? 0,
+                    precio:
+                        Number(
+                            producto.precio || 0
+                        ),
 
-                categoria
-            });
-        });
+                    stock:
+                        producto.stock ?? 0,
+
+                    categoria
+
+                });
+
+            }
+        );
 
         worksheet.getRow(1).font = {
+
             bold: true,
+
             color: {
                 argb: "FFFFFF"
             }
+
         };
 
         worksheet.getRow(1).fill = {
+
             type: "pattern",
+
             pattern: "solid",
+
             fgColor: {
                 argb: "10B981"
             }
+
         };
 
         worksheet.getRow(1).alignment = {
+
             vertical: "middle",
+
             horizontal: "center"
+
         };
 
         const buffer =
@@ -402,12 +488,16 @@ function Productos() {
         enlace.click();
 
         URL.revokeObjectURL(url);
+
     };
 
     return (
+
         <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-green-100 p-4 md:p-8">
 
             <div className="max-w-7xl mx-auto">
+
+                {/* ENCABEZADO */}
 
                 <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-700 rounded-3xl shadow-2xl p-6 md:p-8 mb-8 text-white">
 
@@ -418,30 +508,52 @@ function Productos() {
                             <div className="flex items-center gap-3 mb-2">
 
                                 <div className="bg-emerald-400 rounded-2xl p-3 text-2xl">
+
                                     📦
+
                                 </div>
 
                                 <h1 className="text-3xl md:text-4xl font-bold">
+
                                     Gestión de Productos
+
                                 </h1>
 
                             </div>
 
                             <p className="text-emerald-100">
+
                                 Administra los productos de tu punto de venta
+
                             </p>
 
                         </div>
 
-                        <div className="bg-white/10 backdrop-blur rounded-2xl px-6 py-4 text-center">
+                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
 
-                            <p className="text-emerald-100 text-sm">
-                                Productos activos
-                            </p>
+                            <button
+                                type="button"
+                                onClick={() => navigate("/reportes")}
+                                className="rounded-xl bg-emerald-400 px-5 py-3 font-black text-emerald-950 shadow-lg transition hover:-translate-y-0.5 hover:bg-emerald-300 hover:shadow-xl"
+                            >
+                                📊 Reportes
+                            </button>
 
-                            <p className="text-3xl font-bold">
-                                {productos.length}
-                            </p>
+                            <div className="bg-white/10 backdrop-blur rounded-2xl px-6 py-4 text-center">
+
+                                <p className="text-emerald-100 text-sm">
+
+                                    Productos activos
+
+                                </p>
+
+                                <p className="text-3xl font-bold">
+
+                                    {productos.length}
+
+                                </p>
+
+                            </div>
 
                         </div>
 
@@ -452,12 +564,16 @@ function Productos() {
                 {mensaje && (
 
                     <div className="mb-6 bg-emerald-100 border border-emerald-300 text-emerald-800 px-5 py-4 rounded-2xl font-semibold shadow">
+
                         {mensaje}
+
                     </div>
 
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+                    {/* FORMULARIO */}
 
                     <div className="lg:col-span-4">
 
@@ -491,7 +607,9 @@ function Productos() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Nombre
+
                                     </label>
 
                                     <input
@@ -509,7 +627,9 @@ function Productos() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Descripción
+
                                     </label>
 
                                     <textarea
@@ -526,7 +646,9 @@ function Productos() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Precio
+
                                     </label>
 
                                     <input
@@ -546,7 +668,9 @@ function Productos() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Stock
+
                                     </label>
 
                                     <input
@@ -565,7 +689,9 @@ function Productos() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Categoría
+
                                     </label>
 
                                     <select
@@ -580,22 +706,24 @@ function Productos() {
                                             Selecciona una categoría
                                         </option>
 
-                                        {categorias.map((categoria) => (
+                                        {categorias.map(
+                                            (categoria) => (
 
-                                            <option
-                                                key={
-                                                    categoria.idCategoria ||
-                                                    categoria.id
-                                                }
-                                                value={
-                                                    categoria.idCategoria ||
-                                                    categoria.id
-                                                }
-                                            >
-                                                {categoria.nombre}
-                                            </option>
+                                                <option
+                                                    key={
+                                                        categoria.idCategoria ||
+                                                        categoria.id
+                                                    }
+                                                    value={
+                                                        categoria.idCategoria ||
+                                                        categoria.id
+                                                    }
+                                                >
+                                                    {categoria.nombre}
+                                                </option>
 
-                                        ))}
+                                            )
+                                        )}
 
                                     </select>
 
@@ -605,9 +733,11 @@ function Productos() {
                                     type="submit"
                                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition shadow-lg"
                                 >
+
                                     {modoEdicion
                                         ? "💾 Actualizar Producto"
                                         : "💾 Guardar Producto"}
+
                                 </button>
 
                                 {modoEdicion && (
@@ -627,6 +757,7 @@ function Productos() {
                         </div>
 
                     </div>
+
                     {/* LISTADO */}
 
                     <div className="lg:col-span-8">
@@ -640,11 +771,15 @@ function Productos() {
                                     <div>
 
                                         <h2 className="text-xl font-bold">
+
                                             📋 Listado de Productos
+
                                         </h2>
 
                                         <p className="text-emerald-100 text-sm">
+
                                             Productos activos registrados
+
                                         </p>
 
                                     </div>
@@ -731,93 +866,109 @@ function Productos() {
 
                                         ) : (
 
-                                            productos.map((producto, index) => {
+                                            productos.map(
+                                                (producto, index) => {
 
-                                                const categoria =
-                                                    producto.idCategoria?.nombre ||
-                                                    producto.categoria?.nombre ||
-                                                    producto.idCategoria ||
-                                                    "Sin categoría";
+                                                    const categoria =
+                                                        producto.idCategoria?.nombre ||
+                                                        producto.categoria?.nombre ||
+                                                        producto.idCategoria ||
+                                                        "Sin categoría";
 
-                                                const idProducto =
-                                                    producto.idProducto ||
-                                                    producto.id;
+                                                    const idProducto =
+                                                        producto.idProducto ||
+                                                        producto.id;
 
-                                                return (
+                                                    return (
 
-                                                    <tr
-                                                        key={idProducto || index}
-                                                        className={
-                                                            index % 2 === 0
-                                                                ? "bg-white hover:bg-emerald-100 transition"
-                                                                : "bg-emerald-50 hover:bg-emerald-100 transition"
-                                                        }
-                                                    >
+                                                        <tr
+                                                            key={
+                                                                idProducto ||
+                                                                index
+                                                            }
+                                                            className={
+                                                                index % 2 === 0
+                                                                    ? "bg-white hover:bg-emerald-100 transition"
+                                                                    : "bg-emerald-50 hover:bg-emerald-100 transition"
+                                                            }
+                                                        >
 
-                                                        <td className="px-4 py-4 font-semibold text-emerald-950">
-                                                            {producto.nombre}
-                                                        </td>
+                                                            <td className="px-4 py-4 font-semibold text-emerald-950">
 
-                                                        <td className="px-4 py-4 text-gray-700">
-                                                            {producto.descripcion || "—"}
-                                                        </td>
+                                                                {producto.nombre}
 
-                                                        <td className="px-4 py-4 font-bold text-emerald-700">
-                                                            Q{" "}
-                                                            {Number(
-                                                                producto.precio || 0
-                                                            ).toFixed(2)}
-                                                        </td>
+                                                            </td>
 
-                                                        <td className="px-4 py-4">
+                                                            <td className="px-4 py-4 text-gray-700">
 
-                                                            <span className="inline-flex px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
-                                                                {producto.stock ?? 0}
-                                                            </span>
+                                                                {producto.descripcion || "—"}
 
-                                                        </td>
+                                                            </td>
 
-                                                        <td className="px-4 py-4 text-gray-700">
-                                                            {categoria}
-                                                        </td>
+                                                            <td className="px-4 py-4 font-bold text-emerald-700">
 
-                                                        <td className="px-4 py-4">
+                                                                Q{" "}
 
-                                                            <div className="flex flex-col sm:flex-row justify-center gap-2">
+                                                                {Number(
+                                                                    producto.precio || 0
+                                                                ).toFixed(2)}
 
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        editarProducto(
-                                                                            producto
-                                                                        )
-                                                                    }
-                                                                    className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl font-semibold transition"
-                                                                >
-                                                                    ✏️ Editar
-                                                                </button>
+                                                            </td>
 
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        anularProducto(
-                                                                            idProducto
-                                                                        )
-                                                                    }
-                                                                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-semibold transition"
-                                                                >
-                                                                    🚫 Anular
-                                                                </button>
+                                                            <td className="px-4 py-4">
 
-                                                            </div>
+                                                                <span className="inline-flex px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
 
-                                                        </td>
+                                                                    {producto.stock ?? 0}
 
-                                                    </tr>
+                                                                </span>
 
-                                                );
+                                                            </td>
 
-                                            })
+                                                            <td className="px-4 py-4 text-gray-700">
+
+                                                                {categoria}
+
+                                                            </td>
+
+                                                            <td className="px-4 py-4">
+
+                                                                <div className="flex flex-col sm:flex-row justify-center gap-2">
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            editarProducto(
+                                                                                producto
+                                                                            )
+                                                                        }
+                                                                        className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl font-semibold transition"
+                                                                    >
+                                                                        ✏️ Editar
+                                                                    </button>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            anularProducto(
+                                                                                idProducto
+                                                                            )
+                                                                        }
+                                                                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-semibold transition"
+                                                                    >
+                                                                        🚫 Anular
+                                                                    </button>
+
+                                                                </div>
+
+                                                            </td>
+
+                                                        </tr>
+
+                                                    );
+
+                                                }
+                                            )
 
                                         )}
 
@@ -830,8 +981,11 @@ function Productos() {
                             <div className="bg-emerald-100/70 px-5 py-4 text-sm text-emerald-800">
 
                                 Total de productos activos:{" "}
+
                                 <strong>
+
                                     {productos.length}
+
                                 </strong>
 
                             </div>
@@ -845,7 +999,9 @@ function Productos() {
             </div>
 
         </div>
+
     );
+
 }
 
 export default Productos;

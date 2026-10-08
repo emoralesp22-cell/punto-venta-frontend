@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import axios from "axios";
 
 import jsPDF from "jspdf";
@@ -6,6 +8,8 @@ import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 
 function Clientes() {
+
+    const navigate = useNavigate();
 
     const formInicial = {
         idCliente: null,
@@ -18,13 +22,14 @@ function Clientes() {
     };
 
     const [clientes, setClientes] = useState([]);
-
     const [form, setForm] = useState(formInicial);
     const [modoEdicion, setModoEdicion] = useState(false);
     const [mensaje, setMensaje] = useState("");
 
     const cargarClientes = async () => {
+
         try {
+
             const respuesta = await axios.get(
                 "http://localhost:8080/clientes/activos"
             );
@@ -32,33 +37,51 @@ function Clientes() {
             setClientes(respuesta.data || []);
 
         } catch (error) {
-            console.error("Error al listar clientes:", error);
+
+            console.error(
+                "Error al listar clientes:",
+                error
+            );
+
         }
+
     };
 
     useEffect(() => {
+
         cargarClientes();
+
     }, []);
 
     const handleChange = (e) => {
+
         setForm({
             ...form,
             [e.target.name]: e.target.value
         });
+
     };
 
     const guardarCliente = async (e) => {
+
         e.preventDefault();
 
         try {
 
             const datos = {
+
                 estado: true,
+
                 nombre: form.nombre,
+
                 apellido: form.apellido,
+
                 email: form.email,
+
                 telefono: form.telefono,
+
                 fechaRegistro: form.fechaRegistro
+
             };
 
             if (modoEdicion) {
@@ -82,6 +105,7 @@ function Clientes() {
                 setMensaje(
                     "Cliente guardado correctamente."
                 );
+
             }
 
             setForm(formInicial);
@@ -90,7 +114,9 @@ function Clientes() {
             await cargarClientes();
 
             setTimeout(() => {
+
                 setMensaje("");
+
             }, 3000);
 
         } catch (error) {
@@ -103,18 +129,28 @@ function Clientes() {
             setMensaje(
                 "Error al guardar o actualizar el cliente."
             );
+
         }
+
     };
 
     const editarCliente = (cliente) => {
 
-        let fecha = cliente.fechaRegistro || "";
+        let fecha =
+            cliente.fechaRegistro || "";
 
-        if (fecha && fecha.length > 16) {
-            fecha = fecha.substring(0, 16);
+        if (
+            fecha &&
+            fecha.length > 16
+        ) {
+
+            fecha =
+                fecha.substring(0, 16);
+
         }
 
         setForm({
+
             idCliente:
                 cliente.idCliente ||
                 cliente.id,
@@ -136,14 +172,19 @@ function Clientes() {
 
             fechaRegistro:
                 fecha
+
         });
 
         setModoEdicion(true);
 
         window.scrollTo({
+
             top: 0,
+
             behavior: "smooth"
+
         });
+
     };
 
     const cancelarEdicion = () => {
@@ -151,16 +192,20 @@ function Clientes() {
         setForm(formInicial);
         setModoEdicion(false);
         setMensaje("");
+
     };
 
     const anularCliente = async (id) => {
 
-        const confirmar = window.confirm(
-            "¿Estás seguro de que deseas anular este cliente?"
-        );
+        const confirmar =
+            window.confirm(
+                "¿Estás seguro de que deseas anular este cliente?"
+            );
 
         if (!confirmar) {
+
             return;
+
         }
 
         try {
@@ -176,7 +221,9 @@ function Clientes() {
             await cargarClientes();
 
             setTimeout(() => {
+
                 setMensaje("");
+
             }, 3000);
 
         } catch (error) {
@@ -189,8 +236,14 @@ function Clientes() {
             setMensaje(
                 "No se pudo anular el cliente."
             );
+
         }
+
     };
+
+    // =========================
+    // PDF
+    // =========================
 
     const generarPDF = () => {
 
@@ -212,58 +265,84 @@ function Clientes() {
             28
         );
 
-        const datos = clientes.map((cliente) => [
+        const datos =
+            clientes.map(
+                (cliente) => [
 
-            `${cliente.nombre || ""} ${cliente.apellido || ""}`,
+                    `${cliente.nombre || ""} ${cliente.apellido || ""}`,
 
-            cliente.email || "",
+                    cliente.email || "",
 
-            cliente.telefono || "",
+                    cliente.telefono || "",
 
-            cliente.fechaRegistro
-                ? new Date(
                     cliente.fechaRegistro
-                ).toLocaleString()
-                : ""
-        ]);
+                        ? new Date(
+                            cliente.fechaRegistro
+                        ).toLocaleString()
+                        : ""
+
+                ]
+            );
 
         autoTable(doc, {
 
             startY: 35,
 
             head: [[
+
                 "Nombre",
+
                 "Email",
+
                 "Teléfono",
+
                 "Registro"
+
             ]],
 
             body: datos,
 
             headStyles: {
-                fillColor: [16, 185, 129]
+
+                fillColor: [
+                    16,
+                    185,
+                    129
+                ]
+
             },
 
             alternateRowStyles: {
-                fillColor: [236, 253, 245]
+
+                fillColor: [
+                    236,
+                    253,
+                    245
+                ]
+
             }
+
         });
 
         return doc;
+
     };
 
     const exportarPDF = () => {
 
-        const doc = generarPDF();
+        const doc =
+            generarPDF();
 
         doc.save(
             "Listado_de_Clientes.pdf"
         );
+
     };
 
     const verPDF = () => {
 
-        const doc = generarPDF();
+        const doc =
+            generarPDF();
 
         const blob =
             doc.output("blob");
@@ -275,7 +354,12 @@ function Clientes() {
             url,
             "_blank"
         );
+
     };
+
+    // =========================
+    // EXCEL
+    // =========================
 
     const exportarExcel = async () => {
 
@@ -312,60 +396,76 @@ function Clientes() {
                 key: "registro",
                 width: 25
             }
+
         ];
 
-        clientes.forEach((cliente) => {
+        clientes.forEach(
+            (cliente) => {
 
-            worksheet.addRow({
+                worksheet.addRow({
 
-                nombre:
-                    `${cliente.nombre || ""} ${cliente.apellido || ""}`,
+                    nombre:
+                        `${cliente.nombre || ""} ${cliente.apellido || ""}`,
 
-                email:
-                    cliente.email || "",
+                    email:
+                        cliente.email || "",
 
-                telefono:
-                    cliente.telefono || "",
+                    telefono:
+                        cliente.telefono || "",
 
-                registro:
-                    cliente.fechaRegistro
-                        ? new Date(
-                            cliente.fechaRegistro
-                        ).toLocaleString()
-                        : ""
-            });
-        });
+                    registro:
+                        cliente.fechaRegistro
+                            ? new Date(
+                                cliente.fechaRegistro
+                            ).toLocaleString()
+                            : ""
+
+                });
+
+            }
+        );
 
         worksheet.getRow(1).font = {
+
             bold: true,
+
             color: {
                 argb: "FFFFFF"
             }
+
         };
 
         worksheet.getRow(1).fill = {
+
             type: "pattern",
+
             pattern: "solid",
+
             fgColor: {
                 argb: "10B981"
             }
+
         };
 
         worksheet.getRow(1).alignment = {
+
             vertical: "middle",
+
             horizontal: "center"
+
         };
 
         const buffer =
             await workbook.xlsx.writeBuffer();
 
-        const blob = new Blob(
-            [buffer],
-            {
-                type:
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            }
-        );
+        const blob =
+            new Blob(
+                [buffer],
+                {
+                    type:
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                }
+            );
 
         const url =
             URL.createObjectURL(blob);
@@ -381,12 +481,16 @@ function Clientes() {
         enlace.click();
 
         URL.revokeObjectURL(url);
+
     };
 
     return (
+
         <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-green-100 p-4 md:p-8">
 
             <div className="max-w-7xl mx-auto">
+
+                {/* ENCABEZADO */}
 
                 <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-700 rounded-3xl shadow-2xl p-6 md:p-8 mb-8 text-white">
 
@@ -397,30 +501,52 @@ function Clientes() {
                             <div className="flex items-center gap-3 mb-2">
 
                                 <div className="bg-emerald-400 rounded-2xl p-3 text-2xl">
+
                                     👥
+
                                 </div>
 
                                 <h1 className="text-3xl md:text-4xl font-bold">
+
                                     Gestión de Clientes
+
                                 </h1>
 
                             </div>
 
                             <p className="text-emerald-100">
+
                                 Administra los clientes de tu punto de venta
+
                             </p>
 
                         </div>
 
-                        <div className="bg-white/10 backdrop-blur rounded-2xl px-6 py-4 text-center">
+                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
 
-                            <p className="text-emerald-100 text-sm">
-                                Clientes activos
-                            </p>
+                            <button
+                                type="button"
+                                onClick={() => navigate("/reportes")}
+                                className="rounded-xl bg-emerald-400 px-5 py-3 font-black text-emerald-950 shadow-lg transition hover:-translate-y-0.5 hover:bg-emerald-300 hover:shadow-xl"
+                            >
+                                📊 Reportes
+                            </button>
 
-                            <p className="text-3xl font-bold">
-                                {clientes.length}
-                            </p>
+                            <div className="bg-white/10 backdrop-blur rounded-2xl px-6 py-4 text-center">
+
+                                <p className="text-emerald-100 text-sm">
+
+                                    Clientes activos
+
+                                </p>
+
+                                <p className="text-3xl font-bold">
+
+                                    {clientes.length}
+
+                                </p>
+
+                            </div>
 
                         </div>
 
@@ -431,12 +557,16 @@ function Clientes() {
                 {mensaje && (
 
                     <div className="mb-6 bg-emerald-100 border border-emerald-300 text-emerald-800 px-5 py-4 rounded-2xl font-semibold shadow">
+
                         {mensaje}
+
                     </div>
 
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+                    {/* FORMULARIO */}
 
                     <div className="lg:col-span-4">
 
@@ -470,7 +600,9 @@ function Clientes() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Nombre
+
                                     </label>
 
                                     <input
@@ -488,7 +620,9 @@ function Clientes() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Apellido
+
                                     </label>
 
                                     <input
@@ -506,7 +640,9 @@ function Clientes() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Email
+
                                     </label>
 
                                     <input
@@ -524,7 +660,9 @@ function Clientes() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Teléfono
+
                                     </label>
 
                                     <input
@@ -542,7 +680,9 @@ function Clientes() {
                                 <div>
 
                                     <label className="block text-sm font-semibold text-emerald-900 mb-2">
+
                                         Fecha de registro
+
                                     </label>
 
                                     <input
@@ -560,9 +700,11 @@ function Clientes() {
                                     type="submit"
                                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition shadow-lg"
                                 >
+
                                     {modoEdicion
                                         ? "💾 Actualizar Cliente"
                                         : "💾 Guardar Cliente"}
+
                                 </button>
 
                                 {modoEdicion && (
@@ -582,6 +724,7 @@ function Clientes() {
                         </div>
 
                     </div>
+
                     {/* LISTADO */}
 
                     <div className="lg:col-span-8">
@@ -595,11 +738,15 @@ function Clientes() {
                                     <div>
 
                                         <h2 className="text-xl font-bold">
+
                                             📋 Listado de Clientes
+
                                         </h2>
 
                                         <p className="text-emerald-100 text-sm">
+
                                             Clientes activos registrados
+
                                         </p>
 
                                     </div>
@@ -682,84 +829,95 @@ function Clientes() {
 
                                         ) : (
 
-                                            clientes.map((cliente, index) => {
+                                            clientes.map(
+                                                (cliente, index) => {
 
-                                                const idCliente =
-                                                    cliente.idCliente ||
-                                                    cliente.id;
+                                                    const idCliente =
+                                                        cliente.idCliente ||
+                                                        cliente.id;
 
-                                                return (
+                                                    return (
 
-                                                    <tr
-                                                        key={
-                                                            idCliente ||
-                                                            index
-                                                        }
-                                                        className={
-                                                            index % 2 === 0
-                                                                ? "bg-white hover:bg-emerald-100 transition"
-                                                                : "bg-emerald-50 hover:bg-emerald-100 transition"
-                                                        }
-                                                    >
+                                                        <tr
+                                                            key={
+                                                                idCliente ||
+                                                                index
+                                                            }
+                                                            className={
+                                                                index % 2 === 0
+                                                                    ? "bg-white hover:bg-emerald-100 transition"
+                                                                    : "bg-emerald-50 hover:bg-emerald-100 transition"
+                                                            }
+                                                        >
 
-                                                        <td className="px-4 py-4 font-semibold text-emerald-950">
-                                                            {cliente.nombre}{" "}
-                                                            {cliente.apellido}
-                                                        </td>
+                                                            <td className="px-4 py-4 font-semibold text-emerald-950">
 
-                                                        <td className="px-4 py-4 text-gray-700">
-                                                            {cliente.email || "—"}
-                                                        </td>
+                                                                {cliente.nombre}{" "}
 
-                                                        <td className="px-4 py-4 text-gray-700">
-                                                            {cliente.telefono || "—"}
-                                                        </td>
+                                                                {cliente.apellido}
 
-                                                        <td className="px-4 py-4 text-gray-700">
-                                                            {cliente.fechaRegistro
-                                                                ? new Date(
-                                                                    cliente.fechaRegistro
-                                                                ).toLocaleString()
-                                                                : "—"}
-                                                        </td>
+                                                            </td>
 
-                                                        <td className="px-4 py-4">
+                                                            <td className="px-4 py-4 text-gray-700">
 
-                                                            <div className="flex flex-col sm:flex-row justify-center gap-2">
+                                                                {cliente.email || "—"}
 
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        editarCliente(
-                                                                            cliente
-                                                                        )
-                                                                    }
-                                                                    className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl font-semibold transition"
-                                                                >
-                                                                    ✏️ Editar
-                                                                </button>
+                                                            </td>
 
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        anularCliente(
-                                                                            idCliente
-                                                                        )
-                                                                    }
-                                                                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-semibold transition"
-                                                                >
-                                                                    🚫 Anular
-                                                                </button>
+                                                            <td className="px-4 py-4 text-gray-700">
 
-                                                            </div>
+                                                                {cliente.telefono || "—"}
 
-                                                        </td>
+                                                            </td>
 
-                                                    </tr>
+                                                            <td className="px-4 py-4 text-gray-700">
 
-                                                );
+                                                                {cliente.fechaRegistro
+                                                                    ? new Date(
+                                                                        cliente.fechaRegistro
+                                                                    ).toLocaleString()
+                                                                    : "—"}
 
-                                            })
+                                                            </td>
+
+                                                            <td className="px-4 py-4">
+
+                                                                <div className="flex flex-col sm:flex-row justify-center gap-2">
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            editarCliente(
+                                                                                cliente
+                                                                            )
+                                                                        }
+                                                                        className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl font-semibold transition"
+                                                                    >
+                                                                        ✏️ Editar
+                                                                    </button>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            anularCliente(
+                                                                                idCliente
+                                                                            )
+                                                                        }
+                                                                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-semibold transition"
+                                                                    >
+                                                                        🚫 Anular
+                                                                    </button>
+
+                                                                </div>
+
+                                                            </td>
+
+                                                        </tr>
+
+                                                    );
+
+                                                }
+                                            )
 
                                         )}
 
@@ -772,8 +930,11 @@ function Clientes() {
                             <div className="bg-emerald-100/70 px-5 py-4 text-sm text-emerald-800">
 
                                 Total de clientes activos:{" "}
+
                                 <strong>
+
                                     {clientes.length}
+
                                 </strong>
 
                             </div>
@@ -787,7 +948,9 @@ function Clientes() {
             </div>
 
         </div>
+
     );
+
 }
 
 export default Clientes;
